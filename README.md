@@ -18,6 +18,14 @@ The protocol dictates how each packet is sent between the client and server, and
 
 \* The `bye` command is also included, and can be sent from either side, either forcing the client to close, or telling the server that the client is closing.
 
+Each packet is encoded as ASCII to bytes, then the length is calculated and prepended as 32-bit integer:
+
+```
+[len:int][data:ascii-byte...]
+```
+
+
+
 ## Parts
 
 ### The server

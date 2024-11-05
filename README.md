@@ -13,10 +13,7 @@ The protocol dictates how each packet is sent between the client and server, and
 | `c2s` | Message | `message <content>` | Sends a message to the server containing text (from input bar) |
 |  |  |  |  |
 | `s2c` | Message | `message <content>` | Sends a message to the client containing text, can be another user's message or a server notification (will be displayed in the output pane) |
-| `s2c` | Format change | `rich <format>` | Sends a format instruction to the client, which can be any `ConsoleColor` |
 | `s2c` | Clear | `clear` | Requests the client to clear their output pane + history |
-
-\* The `bye` command is also included, and can be sent from either side, either forcing the client to close, or telling the server that the client is closing.
 
 Each packet is encoded as ASCII to bytes, then the length is calculated and prepended as 32-bit integer:
 

@@ -31,6 +31,10 @@ class Program
     private static void RunClient(string[] args, string server, int port)
     {
         Console.CursorVisible = false;
+        Console.CancelKeyPress += (s, e) => Console.CursorVisible = true;
+        
+        // Enable ANSI escape sequences on Windows
+        ConsoleAnsiUtils.Initialize();
         
         List<string> messages = new();
         string input = "";
@@ -50,6 +54,12 @@ class Program
         {
             messages.Clear();
             dirty = true;
+        };
+        c.ConnectionLost += () =>
+        {
+            Console.Clear();
+            Console.WriteLine("Connection lost.");
+            Environment.Exit(1);
         };
 
         void RenderThread()

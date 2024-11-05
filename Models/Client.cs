@@ -11,6 +11,7 @@ public class Client
 
     public event Action<string> MessageReceived;
     public event Action ClearRequested;
+    public event Action ConnectionLost;
 
     public Client(string server, int port, string name)
     {
@@ -37,22 +38,17 @@ public class Client
 
                 if (parts[0] == "message")
                     this.MessageReceived?.Invoke(parts[1]);
-
-                if (parts[0] == "rich")
-                    Console.ForegroundColor = Enum.Parse<ConsoleColor>(parts[1], true);
                 
                 if (parts[0] == "clear")
                     this.ClearRequested?.Invoke();
-
-                if (parts[0] == "bye")
-                    break;
             }
-            catch (Exception e)
+            catch (SocketException)
             {
-                Console.WriteLine(e.Message);
                 break;
             }
         }
+        
+        this.ConnectionLost?.Invoke();
     }
 
     private void Send(string code, string? message = null)

@@ -68,13 +68,6 @@ public class Server
             {
                 this.MessageRecieved(client, name, parts[1]);
             }
-            else if (parts[0] == "bye")
-            {
-                Console.WriteLine(parts[1] + " disconnected");
-                client.Close();
-                this.clients.Remove(client);
-                break;
-            }
 
             else throw new("Invalid message code");
         }

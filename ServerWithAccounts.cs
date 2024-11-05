@@ -8,9 +8,9 @@ public class ServerWithAccounts : Server
     {
     }
 
-    protected override void MessageRecieved(TcpClient client, string? name, string message)
+    protected override void MessageRecieved(TcpClient client, string? identity, string message)
     {
-        base.MessageRecieved(client, name, message);
+        base.MessageRecieved(client, identity, message);
     }
 
     protected override void ClientAdded(TcpClient client)

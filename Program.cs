@@ -35,8 +35,9 @@ class Program
         List<string> messages = new();
         string input = "";
         bool dirty = true;
-        
-        Client c = new(server, port, args.Length > 1 ? args[1] : Environment.UserName);
+
+        string identity = args.Length > 1 ? args[1] : Environment.UserName;
+        Client c = new(server, port, identity);
 
         void MessageReceive(string m)
         {

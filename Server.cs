@@ -80,13 +80,13 @@ public class Server
         }
     }
 
-    protected virtual void MessageRecieved(TcpClient client, string? name, string message)
+    protected virtual void MessageRecieved(TcpClient client, string? identity, string message)
     {
-        if (name == null)
+        if (identity == null)
             throw new("Client sent message before identifying");
-        Console.WriteLine($"[{name}] {message}");
+        Console.WriteLine($"[{identity}] {message}");
         
-        this.Broadcast("message", $"[{name}] {message}");
+        this.Broadcast("message", $"[{identity}] {message}");
     }
     
     protected virtual void ClientAdded(TcpClient client)
@@ -107,7 +107,18 @@ public class Server
     {
         foreach (TcpClient client in this.clients
                      .Where(c => c != except))
-            this.Send(client, code, message);
+        {
+            try
+            {
+                this.Send(client, code, message);
+            }
+            catch (SocketException)
+            {
+                client.Close();
+                this.clients.Remove(client);
+            }
+        }
+            
     }
 
     public void Stop()

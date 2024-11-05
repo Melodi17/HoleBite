@@ -10,6 +10,7 @@ public class Client
     public string name;
 
     public event Action<string> MessageReceived;
+    public event Action ClearRequested;
 
     public Client(string server, int port, string name)
     {
@@ -38,9 +39,10 @@ public class Client
                     this.MessageReceived?.Invoke(parts[1]);
 
                 if (parts[0] == "rich")
-                {
                     Console.ForegroundColor = Enum.Parse<ConsoleColor>(parts[1], true);
-                }
+                
+                if (parts[0] == "clear")
+                    this.ClearRequested?.Invoke();
 
                 if (parts[0] == "bye")
                     break;

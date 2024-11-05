@@ -45,6 +45,11 @@ class Program
         }
 
         c.MessageReceived += MessageReceive;
+        c.ClearRequested += () =>
+        {
+            messages.Clear();
+            dirty = true;
+        };
 
         void RenderThread()
         {

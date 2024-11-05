@@ -17,168 +17,247 @@ class Program
         string server = args[0];
         int port = 13577;
 
-        Client client = new(server, port);
-        Protocol protocol = new(client, Environment.UserName);
+        if (server == "server")
+            RunServer(port);
+        else
+            RunClient(args, server, port);
+    }
 
-        protocol.OnMessage += message => { Console.WriteLine($"{protocol.OtherIdentity}: {message}"); };
-        protocol.OnMessageUnauthorized += message => { Console.WriteLine($"<unauthorized>: {message}"); };
+    private static void RunServer(int port)
+    {
+        Server s = new(port);
+        s.Start();
+    }
 
-        protocol.OnHandshakeEstablished += () =>
+    private static void RunClient(string[] args, string server, int port)
+    {
+        List<string> messages = new();
+        int maxMessages = Console.WindowHeight - 2;
+        int inputRow = Console.WindowHeight - 1;
+
+        object l = new();
+        
+        Client c = new(server, port, args.Length > 1 ? args[1] : Environment.UserName);
+        c.MessageReceived += (name, message) =>
         {
-            Console.WriteLine("Handshake established!");
+            messages.Add($"{name}: {message}");
+            
+            
+            StringBuilder screen = new();
+            for (int i = Math.Max(0, messages.Count - maxMessages); i < messages.Count; i++)
+                screen.AppendLine(messages[i] + new string(' ', Console.WindowWidth - messages[i].Length));
+
+            lock (l)
+            {
+                Console.SetCursorPosition(0, 0);
+                Console.Write(screen);
+            }
         };
+        new Thread(c.Start).Start();
 
-        protocol.OnTimeout += () => { Console.WriteLine("Timeout!"); };
-
-        protocol.OnIdentify += identity => { Console.WriteLine($"Other identity: {identity}"); };
-        
-        protocol.StartListeningAndConnect();
-        
         while (true)
         {
-            string message = Console.ReadLine();
-            protocol.SendMessage(message);
-        }
-    }
-}
-
-public class Protocol
-{
-    public Client Client { get; private set; }
-    public bool HandshakeEstablished { get; private set; }
-    public string Identity { get; set; }
-    public string? OtherIdentity { get; private set; }
-
-    public event Action<string> OnMessage;
-    public event Action<string> OnMessageUnauthorized;
-    public event Action OnHandshakeEstablished;
-    public event Action OnTimeout;
-    public event Action<string> OnIdentify;
-
-    public int Timeout { get; set; } = 5000;
-
-    public Protocol(Client client, string identity)
-    {
-        Client = client;
-        Identity = identity;
-    }
-
-    public void StartListeningAndConnect()
-    {
-        new Thread(() =>
-        {
-            while (true)
+            lock (l)
             {
-                string message = Client.Receive();
-
-                if (message.StartsWith("message "))
-                {
-                    (!HandshakeEstablished || OtherIdentity == null ? OnMessageUnauthorized : OnMessage)?
-                        .Invoke(message.Substring(8));
-                }
-                else if (message == "ping")
-                {
-                    SendPong();
-                    HandshakeEstablished = true;
-                    OnHandshakeEstablished?.Invoke();
-                }
-                else if (message == "who are you?")
-                {
-                    SendIdentity();
-                }
-                else if (message.StartsWith("i'm "))
-                {
-                    OtherIdentity = message.Substring(4);
-                    OnIdentify?.Invoke(OtherIdentity);
-                }
-                else if (message == "pong")
-                {
-                    HandshakeEstablished = true;
-                    OnHandshakeEstablished?.Invoke();
-                }
+                Console.SetCursorPosition(0, inputRow);
+                Console.Write(new string(' ', Console.WindowWidth));
+                Console.SetCursorPosition(0, inputRow);
+                Console.Write($" : ");
             }
-        }).Start();
-
-        int lapse = 0;
-        while (!HandshakeEstablished)
-        {
-            SendPing();
-            Thread.Sleep(1000);
-            lapse += 1000;
-
-            if (lapse >= Timeout)
-            {
-                OnTimeout?.Invoke();
-                return;
-            }
+            string message = Console.ReadLine()!;
+            c.SendMessage(message);
         }
-
-        this.SendIdentify();
-    }
-
-    public void SendMessage(string message)
-    {
-        Client.Send("message " + message);
-    }
-
-    private void SendPing()
-    {
-        Client.Send("ping");
-    }
-
-    private void SendPong()
-    {
-        Client.Send("pong");
-    }
-
-    private void SendIdentify()
-    {
-        Client.Send("who are you?");
-    }
-
-    private void SendIdentity()
-    {
-        Client.Send($"i'm {Identity}");
-    }
-
-    private void Receive()
-    {
-        Client.Receive();
     }
 }
 
 public class Client
 {
-    private UdpClient _client;
-    private string _server;
-    private int _port;
+    TcpClient client;
+    NetworkStream stream;
+    public string name;
 
-    public Client(string server, int port)
+    public event Action<string, string> MessageReceived;
+
+    public Client(string server, int port, string name)
     {
-        _client = new UdpClient();
-        _server = server;
-        _port = port;
+        client = new TcpClient(server, port);
+        stream = client.GetStream();
+        this.name = name;
     }
 
-    public void Send(string message)
+    public void SendMessage(string message)
     {
-        byte[] data = Encoding.ASCII.GetBytes(message);
+        Send("message", message);
+    }
+
+    public void Start()
+    {
+        Send("i'm", name);
+
+        while (true)
+        {
+            try
+            {
+                string message = Receive();
+                string[] parts = message.Split(' ', 2);
+
+                if (parts[0] == "message")
+                    MessageReceived?.Invoke(parts[1], parts[2]);
+
+                if (parts[0] == "rich")
+                {
+                    Console.ForegroundColor = Enum.Parse<ConsoleColor>(parts[1], true);
+                }
+
+                if (parts[0] == "bye")
+                    break;   
+            }
+            catch (Exception e) { }
+        }
+    }
+
+    private void Send(string code, string? message = null)
+    {
+        byte[] data = Encoding.ASCII.GetBytes(code + (message == null ? "" : " " + message));
         byte[] size = BitConverter.GetBytes(data.Length);
-
-        _client.Send(size, size.Length, _server, _port);
-        _client.Send(data, data.Length, _server, _port);
+        stream.Write(size, 0, size.Length);
+        stream.Write(data, 0, data.Length);
     }
 
-    public string Receive()
+    private string Receive()
     {
-        IPEndPoint endpoint = new(IPAddress.Parse(_server), _port);
-        byte[] data = _client.Receive(ref endpoint);
+        byte[] size = new byte[4];
+        stream.Read(size, 0, size.Length);
+        byte[] data = new byte[BitConverter.ToInt32(size, 0)];
 
+        stream.Read(data, 0, data.Length);
         return Encoding.ASCII.GetString(data);
     }
 
     public void Close()
     {
-        _client.Close();
+        stream.Close();
+        client.Close();
+    }
+}
+
+public class Server
+{
+    protected TcpListener listener;
+    protected List<TcpClient> clients = new();
+
+    public Server(int port)
+    {
+        listener = new(IPAddress.Any, port);
+    }
+
+    public virtual void Start()
+    {
+        listener.Start();
+
+        while (true)
+        {
+            TcpClient client = listener.AcceptTcpClient();
+            new Thread(() =>
+            {
+                try
+                {
+                    HandleClient(client);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e.Message);
+                }
+            }).Start();
+            ClientAdded(client);
+            clients.Add(client);
+        }
+    }
+
+    protected virtual void HandleClient(TcpClient client)
+    {
+        NetworkStream stream = client.GetStream();
+
+        string? name = null;
+
+        while (true)
+        {
+            byte[] size = new byte[4];
+            stream.Read(size, 0, size.Length);
+            byte[] data = new byte[BitConverter.ToInt32(size, 0)];
+
+            stream.Read(data, 0, data.Length);
+            string message = Encoding.ASCII.GetString(data);
+            string[] parts = message.Split(' ', 2);
+
+            if (parts[0] == "i'm")
+            {
+                name = parts[1];
+                Console.WriteLine(name + " connected");
+            }
+            else if (parts[0] == "message")
+            {
+                this.MessageRecieved(name, parts[1]);
+            }
+            else if (parts[0] == "bye")
+            {
+                Console.WriteLine(parts[1] + " disconnected");
+                break;
+            }
+
+            else throw new("Invalid message code");
+        }
+    }
+
+    protected virtual void MessageRecieved(string? name, string message)
+    {
+        if (name == null)
+            throw new("Client sent message before identifying");
+        Console.WriteLine($"[{name}] {message}");
+        this.Broadcast("message", $"[{name}] {message}");
+    }
+    
+    protected virtual void ClientAdded(TcpClient client)
+    {
+        Console.WriteLine("Client connected");
+    }
+
+    protected void Send(TcpClient client, string code, string? message = null)
+    {
+        byte[] data = Encoding.ASCII.GetBytes(code + (message == null ? "" : " " + message));
+        byte[] size = BitConverter.GetBytes(data.Length);
+
+        client.GetStream().Write(size, 0, size.Length);
+    }
+
+    protected void Broadcast(string code, string? message = null)
+    {
+        foreach (TcpClient client in clients)
+            Send(client, code, message);
+    }
+
+    public void Stop()
+    {
+        foreach (TcpClient client in clients)
+            client.Close();
+
+        listener.Stop();
+    }
+}
+
+public class ServerWithAccounts : Server
+{
+    public ServerWithAccounts(int port) : base(port)
+    {
+    }
+
+    protected override void MessageRecieved(string? name, string message)
+    {
+        base.MessageRecieved(name, message);
+    }
+
+    protected override void ClientAdded(TcpClient client)
+    {
+        base.ClientAdded(client);
     }
 }

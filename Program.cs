@@ -8,7 +8,8 @@ class Program
     {
         if (args.Length < 1)
         {
-            Console.WriteLine("Usage: holebite.exe <server>");
+            Console.WriteLine("Client usage: holebite.exe <server>");
+            Console.WriteLine("Server usage: holebite.exe --server");
             return;
         }
 

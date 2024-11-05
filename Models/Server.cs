@@ -63,6 +63,7 @@ public class Server
             {
                 name = parts[1];
                 Console.WriteLine(name + " connected");
+                IdentityReceived(client, name);
             }
             else if (parts[0] == "message")
             {
@@ -71,6 +72,11 @@ public class Server
 
             else throw new("Invalid message code");
         }
+    }
+
+    protected virtual void IdentityReceived(TcpClient client, string name)
+    {
+        
     }
 
     protected virtual void MessageRecieved(TcpClient client, string? identity, string message)

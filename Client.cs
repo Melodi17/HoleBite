@@ -23,7 +23,7 @@ public class Client
         this.Send("message", message);
     }
 
-    public void Start()
+    public void StartListening()
     {
         this.Send("i'm", this.name);
 

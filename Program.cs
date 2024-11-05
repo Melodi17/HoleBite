@@ -1,5 +1,4 @@
 ﻿using System.Text;
-using Konsole;
 
 namespace HoleBite;
 
@@ -30,49 +29,92 @@ class Program
 
     private static void RunClient(string[] args, string server, int port)
     {
+        Console.CursorVisible = false;
+        
         List<string> messages = new();
-
-        var consoles = Window.HostConsole.SplitRows(
-            new Split(0),
-            new Split(1)
-        );
-
-        var chat = consoles[0];
-        var input = consoles[1];
-
-        ConcurrentWriter chatWriter = new(chat);
+        string input = "";
+        bool dirty = true;
         
         Client c = new(server, port, args.Length > 1 ? args[1] : Environment.UserName);
-        c.MessageReceived += (message) =>
-        {
-            messages.Add(message);
-            
-            StringBuilder screen = new();
-            for (int i = Math.Max(0, messages.Count - maxMessages); i < messages.Count; i++)
-                screen.AppendLine(messages[i] + new string(' ', width - messages[i].Length));
-            for (int i = messages.Count; i < maxMessages; i++)
-                screen.AppendLine(new string(' ', width));
 
-            lock (consoleLockObject)
+        void MessageReceive(string m)
+        {
+            messages.Add(m);
+            dirty = true;
+        }
+
+        c.MessageReceived += MessageReceive;
+
+        void RenderThread()
+        {
+            while (true)
             {
-                Console.SetCursorPosition(0, 0);
-                Console.Write(screen.ToString().TrimEnd('\n'));
+                if (dirty)
+                {
+                    dirty = false;
+                    Render(messages, input);
+                }
+                else
+                    Thread.Sleep(10);
             }
-        };
-        new Thread(c.Start).Start();
+        }
+
+        new Thread(c.StartListening).Start();
+        new Thread(RenderThread).Start();
 
         while (true)
         {
-            lock (consoleLockObject)
+            try
             {
-                Console.SetCursorPosition(0, inputRow);
-                Console.Write(new string(' ', width));
-                Console.SetCursorPosition(0, inputRow);
-                Console.Write($" : ");
+                ReadLine(ref input, ref dirty);
             }
-            Console.SetCursorPosition(3, inputRow);
-            string message = ReadLine()!;
-            c.SendMessage(message);
+            catch
+            {
+                break;
+            }
+            c.SendMessage(input);
+            input = "";
         }
+        
+        Console.CursorVisible = true;
+    }
+
+    private static void ReadLine(ref string input, ref bool dirty)
+    {
+        while (true)
+        {
+            ConsoleKeyInfo cki = Console.ReadKey(true);
+            if (cki.Key == ConsoleKey.Enter && input.Length > 0)
+                return;
+            else if (cki.Key == ConsoleKey.Escape)
+                input = "";
+            else if (cki.Key == ConsoleKey.Backspace)
+            {
+                if (input.Length > 0)
+                    input = input.Substring(0, input.Length - 1);
+            }
+            else if ("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=[]{}\\|;:'\",.<>/? ".Contains(cki.KeyChar))
+                input += cki.KeyChar;
+            
+            dirty = true;
+        }
+    }
+
+    private static void Render(List<string> messages, string input)
+    {
+        int maxMessages = Console.WindowHeight - 2;
+        int width = Console.WindowWidth - 1;
+        
+        StringBuilder screen = new();
+        for (int i = Math.Max(0, messages.Count - maxMessages); i < messages.Count; i++)
+            screen.AppendLine(messages[i] + new string(' ', width - messages[i].Length));
+        for (int i = messages.Count; i < maxMessages; i++)
+            screen.AppendLine(new string(' ', width));
+        
+        screen.Append(" : " + input);
+        screen.Append(new string(' ', width - input.Length - 3));
+        
+        Console.SetCursorPosition(0, 0);
+        Console.Write(screen);
     }
 }

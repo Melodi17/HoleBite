@@ -7,8 +7,4 @@
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
-    <ItemGroup>
-      <PackageReference Include="Goblinfactory.Konsole" Version="7.0.0.7-alpha" />
-    </ItemGroup>
-
 </Project>

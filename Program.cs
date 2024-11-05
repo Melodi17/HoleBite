@@ -34,20 +34,20 @@ class Program
         List<string> messages = new();
         int maxMessages = Console.WindowHeight - 2;
         int inputRow = Console.WindowHeight - 1;
+        int width = Console.WindowWidth - 1;
 
-        object l = new();
+        object consoleLockObject = new();
         
         Client c = new(server, port, args.Length > 1 ? args[1] : Environment.UserName);
         c.MessageReceived += (name, message) =>
         {
             messages.Add($"{name}: {message}");
             
-            
             StringBuilder screen = new();
             for (int i = Math.Max(0, messages.Count - maxMessages); i < messages.Count; i++)
-                screen.AppendLine(messages[i] + new string(' ', Console.WindowWidth - messages[i].Length));
+                screen.AppendLine(messages[i] + new string(' ', width - messages[i].Length));
 
-            lock (l)
+            lock (consoleLockObject)
             {
                 Console.SetCursorPosition(0, 0);
                 Console.Write(screen);
@@ -57,10 +57,10 @@ class Program
 
         while (true)
         {
-            lock (l)
+            lock (consoleLockObject)
             {
                 Console.SetCursorPosition(0, inputRow);
-                Console.Write(new string(' ', Console.WindowWidth));
+                Console.Write(new string(' ', width));
                 Console.SetCursorPosition(0, inputRow);
                 Console.Write($" : ");
             }
@@ -72,8 +72,8 @@ class Program
 
 public class Client
 {
-    TcpClient client;
-    NetworkStream stream;
+    private TcpClient client;
+    private NetworkStream stream;
     public string name;
 
     public event Action<string, string> MessageReceived;

@@ -15,7 +15,7 @@ class Program
         string server = args[0];
         int port = 13577;
 
-        if (server == "server")
+        if (server == "--server")
             RunServer(port);
         else
             RunClient(args, server, port);

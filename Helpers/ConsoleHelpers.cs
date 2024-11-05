@@ -3,7 +3,7 @@
 namespace HoleBite;
 
 // https://stackoverflow.com/questions/61779942/ansi-colors-and-writing-directly-to-console-output-c-sharp
-public static class ConsoleAnsiUtils 
+public static class ConsoleHelpers
 {
     private const int STD_OUTPUT_HANDLE = -11;
     private const uint ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004;

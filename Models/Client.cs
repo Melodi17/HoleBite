@@ -3,21 +3,17 @@ using System.Text;
 
 namespace HoleBite;
 
-public class Client
+public abstract class Client
 {
-    private TcpClient client;
-    private NetworkStream stream;
-    public string name;
+    private readonly TcpClient _client;
+    private readonly NetworkStream _stream;
+    public readonly string Identity;
 
-    public event Action<string> MessageReceived;
-    public event Action ClearRequested;
-    public event Action ConnectionLost;
-
-    public Client(string server, int port, string name)
+    protected Client(string server, int port, string identity)
     {
-        this.client = new TcpClient(server, port);
-        this.stream = this.client.GetStream();
-        this.name = name;
+        this._client = new(server, port);
+        this._stream = this._client.GetStream();
+        this.Identity = identity;
     }
 
     public void SendMessage(string message)
@@ -25,53 +21,72 @@ public class Client
         this.Send("message", message);
     }
 
-    public void StartListening()
+    protected void SendIdentity()
     {
-        this.Send("i'm", this.name);
+        this.Send("i'm", this.Identity);
+    }
 
+    protected void Listen()
+    {
+        string? message = this.Receive();
+        if (message == null) return;
+        
+        string[] parts = message.Split(' ', 2);
+
+        if (parts[0] == "message")
+            MessageReceived(parts[1]);
+
+        if (parts[0] == "clear")
+            ClearRequested();
+    }
+
+    public virtual void Start()
+    {
         while (true)
         {
             try
             {
-                string message = this.Receive();
-                string[] parts = message.Split(' ', 2);
-
-                if (parts[0] == "message")
-                    this.MessageReceived?.Invoke(parts[1]);
-                
-                if (parts[0] == "clear")
-                    this.ClearRequested?.Invoke();
+                this.Listen();
             }
-            catch (SocketException)
+            catch (Exception e) when (e is SocketException or IOException)
             {
+                ConnectionLost();
                 break;
             }
         }
-        
-        this.ConnectionLost?.Invoke();
     }
+    public virtual void Stop()
+    {
+        this.Close();
+    }
+    protected abstract void MessageReceived(string message);
+    protected abstract void ClearRequested();
+    protected abstract void ConnectionLost();
 
     private void Send(string code, string? message = null)
     {
         byte[] data = Encoding.ASCII.GetBytes(code + (message == null ? "" : " " + message));
         byte[] size = BitConverter.GetBytes(data.Length);
-        this.stream.Write(size, 0, size.Length);
-        this.stream.Write(data, 0, data.Length);
+        this._stream.Write(size, 0, size.Length);
+        this._stream.Write(data, 0, data.Length);
     }
 
-    private string Receive()
+    private string? Receive()
     {
+        if (this._stream.DataAvailable == false)
+            return null;
+        
         byte[] size = new byte[4];
-        this.stream.Read(size, 0, size.Length);
+        this._stream.Read(size, 0, size.Length);
         byte[] data = new byte[BitConverter.ToInt32(size, 0)];
 
-        this.stream.Read(data, 0, data.Length);
+        this._stream.Read(data, 0, data.Length);
         return Encoding.ASCII.GetString(data);
     }
 
-    public void Close()
+    protected void Close()
     {
-        this.stream.Close();
-        this.client.Close();
+        this._stream.Close();
+        this._client.Close();
     }
 }

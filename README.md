@@ -24,13 +24,15 @@ The protocol dictates how each packet is sent between the client and server, and
 
 >  Direction is either c2s or s2c, (c2s means client to server, and s2c means server to client)
 
-| Direction | Name | Key | Description |
-| --------- | ---- | --- | ----------- |
-| `c2s` | Identity declaration | `i'm <identity>` | Provides the server with an identity to associate with the connection |
-| `c2s` | Message | `message <content>` | Sends a message to the server containing text (from input bar) |
-|  |  |  |  |
-| `s2c` | Message | `message <content>` | Sends a message to the client containing text, can be another user's message or a server notification (will be displayed in the output pane) |
-| `s2c` | Clear | `clear` | Requests the client to clear their output pane + history |
+| Direction | Name | Key | Description                                                                                                                                                   |
+| --------- | ---- | --- |---------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `c2s` | Identity declaration | `i'm <identity>` | Provides the server with an identity to associate with the connection                                                                                         |
+| `c2s` | Message | `message <content>` | Sends a message to the server containing text (from input bar)                                                                                                |
+| `c2s` | Typing | `typing` | Sends a message to the server that the client is typing                                                                                                       |
+|  |  |  |                                                                                                                                                               |
+| `s2c` | Message | `message <content>` | Sends a message to the client containing text, can be another user's message or a server notification (will be displayed in the output pane)                  |
+| `s2c` | Clear | `clear` | Requests the client to clear their output pane + history                                                                                                      |
+| `s2c` | Status | `status <status>` | Sends a status message to the client, can be a server notification or another user's status message (will be displayed in the bottom line of the output pane) |
 
 Each packet is encoded as ASCII to bytes, then the length is calculated and prepended as 32-bit integer:
 

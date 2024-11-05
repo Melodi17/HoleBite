@@ -15,12 +15,12 @@ public abstract class Server
         this._listener = new(IPAddress.Any, port);
         this.Port = port;
     }
-    
+
     public virtual void Start()
     {
         this.StartListening();
     }
-    
+
     protected void StartListening()
     {
         this._listener.Start();
@@ -48,7 +48,7 @@ public abstract class Server
     private void HandleClient(TcpClient client)
     {
         string? identity = null;
-        
+
         try
         {
             this.ClientConnected(client);
@@ -61,12 +61,16 @@ public abstract class Server
 
                 if (parts[0] == "i'm")
                 {
+                    this.IdentityReceived(client, parts[1]);
                     identity = parts[1];
-                    IdentityReceived(client, identity);
                 }
                 else if (parts[0] == "message")
                 {
                     this.MessageReceived(client, identity, parts[1]);
+                }
+                else if (parts[0] == "typing")
+                {
+                    this.TypingReceived(client, identity);
                 }
 
                 else throw new("Invalid message code");
@@ -99,29 +103,28 @@ public abstract class Server
     protected abstract void ClientDisconnected(TcpClient client, string? identity);
     protected abstract void IdentityReceived(TcpClient client, string identity);
     protected abstract void MessageReceived(TcpClient client, string? identity, string message);
+    protected abstract void TypingReceived(TcpClient client, string? identity);
     protected abstract void ClientHandleError(TcpClient client, string? identity, Exception exception);
 
     protected void Send(TcpClient client, string code, string? message = null)
     {
-        byte[] data = Encoding.ASCII.GetBytes(code + (message == null ? "" : " " + message));
-        byte[] size = BitConverter.GetBytes(data.Length);
+        try
+        {
+            byte[] data = Encoding.ASCII.GetBytes(code + (message == null ? "" : " " + message));
+            byte[] size = BitConverter.GetBytes(data.Length);
 
-        client.GetStream().Write(size, 0, size.Length);
-        client.GetStream().Write(data, 0, data.Length);
+            client.GetStream().Write(size, 0, size.Length);
+            client.GetStream().Write(data, 0, data.Length);
+        }
+        catch (Exception e) when (e is SocketException or IOException or InvalidOperationException)
+        {
+        }
     }
 
     protected void Broadcast(string code, string? message = null, TcpClient? except = null)
     {
         foreach (TcpClient client in this.Clients
-                     .Where(c => c != except))
-        {
-            try
-            {
-                this.Send(client, code, message);
-            }
-            catch (Exception e) when (e is SocketException or IOException or InvalidOperationException) { }
-        }
-            
+                     .Where(c => c != except)) this.Send(client, code, message);
     }
 
     public void Stop()

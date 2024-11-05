@@ -1,6 +1,23 @@
 ﻿# HoleBite
 A very simple, extensible console-based network communication tool.
 
+## Installation
+### Developers
+Clone the repository and build it yourself
+```bash
+$ git clone https://github.com/Melodi17/HoleBite
+$ cd HoleBite
+$ dotnet build
+$ dotnet run
+```
+
+### Users
+Download the latest release from the releases page and run it, or use scoop
+```bash
+$ scoop install https://raw.githubusercontent.com/Melodi17/HoleBite/refs/heads/master/Deploy/holebite.json
+```
+Now you can run `holebite` from the command line.
+
 ## Protocol
 
 The protocol dictates how each packet is sent between the client and server, and is as follows:

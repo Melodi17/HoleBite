@@ -8,6 +8,8 @@ public abstract class Client
     private readonly TcpClient _client;
     private readonly NetworkStream _stream;
     public readonly string Identity;
+    
+    private DateTime _lastTyping = DateTime.Now;
 
     protected Client(string server, int port, string identity)
     {
@@ -25,6 +27,17 @@ public abstract class Client
     {
         this.Send("i'm", this.Identity);
     }
+    
+    protected void SendTyping()
+    {
+        // Don't send typing notifications too often
+        if ((DateTime.Now - this._lastTyping).TotalSeconds < 1)
+            return;
+        
+        this.Send("typing");
+        
+        this._lastTyping = DateTime.Now;
+    }
 
     protected void Listen()
     {
@@ -38,6 +51,9 @@ public abstract class Client
 
         if (parts[0] == "clear")
             ClearRequested();
+        
+        if (parts[0] == "status")
+            StatusBar(parts[1]);
     }
 
     public virtual void Start()
@@ -60,6 +76,7 @@ public abstract class Client
         this.Close();
     }
     protected abstract void MessageReceived(string message);
+    protected abstract void StatusBar(string message);
     protected abstract void ClearRequested();
     protected abstract void ConnectionLost();
 

@@ -9,6 +9,8 @@ public class ConsoleClient : Client
     private string _input = "";
     private bool _dirty = true;
     private bool _running = true;
+    private string? _status = null;
+    private DateTime _statusTime = DateTime.Now;
     
     private readonly Thread _renderThread;
     private readonly Thread _inputThread;
@@ -50,6 +52,13 @@ public class ConsoleClient : Client
         this._dirty = true;
     }
 
+    protected override void StatusBar(string message)
+    {
+        this._status = message;
+        this._statusTime = DateTime.Now;
+        this._dirty = true;
+    }
+
     protected override void ClearRequested()
     {
         this._messages.Clear();
@@ -84,6 +93,8 @@ public class ConsoleClient : Client
                 continue;
             }
             
+            this.SendTyping();
+            
             ConsoleKeyInfo cki = Console.ReadKey(true);
             if (cki.Key == ConsoleKey.Enter && this._input.Length > 0)
                 return;
@@ -105,6 +116,12 @@ public class ConsoleClient : Client
     {
         while (this._running)
         {
+            if (this._statusTime + TimeSpan.FromSeconds(5) < DateTime.Now)
+            {
+                this._status = null;
+                this._dirty = true;
+            }
+            
             if (this._dirty)
             {
                 this._dirty = false;
@@ -121,11 +138,19 @@ public class ConsoleClient : Client
         int maxMessages = Console.WindowHeight - 2;
         int width = Console.WindowWidth - 1;
         
+        if (this._status != null)
+            maxMessages--;
+        
         StringBuilder screen = new();
         for (int i = Math.Max(0, this._messages.Count - maxMessages); i < this._messages.Count; i++)
             screen.AppendLine(this._messages[i] + new string(' ', width - this._messages[i].Length));
         for (int i = this._messages.Count; i < maxMessages; i++)
             screen.AppendLine(new(' ', width));
+
+        if (this._status != null)
+        {
+            screen.AppendLine(this._status + new string(' ', width - this._status.Length));
+        }
         
         screen.Append(" : " + this._input);
         screen.Append(new string(' ', width - this._input.Length - 3));

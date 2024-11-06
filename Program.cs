@@ -32,6 +32,7 @@ class Program
     {
         Console.CursorVisible = false;
         Console.CancelKeyPress += (s, e) => Console.CursorVisible = true;
+        Console.Clear();
         
         // Enable ANSI escape sequences on Windows
         ConsoleHelpers.Initialize();

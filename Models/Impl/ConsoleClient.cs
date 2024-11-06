@@ -1,4 +1,5 @@
 ﻿using System.Net.Sockets;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace HoleBite;
@@ -11,6 +12,7 @@ public class ConsoleClient : Client
     private bool _running = true;
     private string? _status = null;
     private DateTime _statusTime = DateTime.Now;
+    private int _scroll = 0;
     
     private readonly Thread _renderThread;
     private readonly Thread _inputThread;
@@ -62,6 +64,7 @@ public class ConsoleClient : Client
     protected override void ClearRequested()
     {
         this._messages.Clear();
+        this._scroll = 0;
         this._dirty = true;
     }
 
@@ -78,6 +81,7 @@ public class ConsoleClient : Client
         {
             this.ReadLine();
             this.SendMessage(this._input);
+            this._scroll = 0;
             this._input = "";
             this._dirty = true;
         }
@@ -93,7 +97,7 @@ public class ConsoleClient : Client
                 continue;
             }
             
-            this.SendTyping();
+            bool suppressTyping = false;
             
             ConsoleKeyInfo cki = Console.ReadKey(true);
             if (cki.Key == ConsoleKey.Enter && this._input.Length > 0)
@@ -105,10 +109,26 @@ public class ConsoleClient : Client
                 if (this._input.Length > 0)
                     this._input = this._input[..^1];
             }
+            else if (cki.Key == ConsoleKey.UpArrow)
+            {
+                if (this._messages.Count - this._scroll > Console.WindowHeight - 2)
+                    this._scroll++;
+                
+                suppressTyping = true;
+            }
+            else if (cki.Key == ConsoleKey.DownArrow)
+            {
+                if (this._scroll > 0)
+                    this._scroll--;
+                
+                suppressTyping = true;
+            }
             else if ("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=[]{}\\|;:'\",.<>/? ".Contains(cki.KeyChar))
                 this._input += cki.KeyChar;
             
             this._dirty = true;
+            if (!suppressTyping)
+                this.SendTyping();
         }
     }
     
@@ -138,19 +158,22 @@ public class ConsoleClient : Client
         int maxMessages = Console.WindowHeight - 2;
         int width = Console.WindowWidth - 1;
         
-        if (this._status != null)
+        if (!string.IsNullOrWhiteSpace(this._status))
             maxMessages--;
         
+        List<string> screenMessages = this._messages.SkipLast(this._scroll).TakeLast(maxMessages).ToList();
         StringBuilder screen = new();
-        for (int i = Math.Max(0, this._messages.Count - maxMessages); i < this._messages.Count; i++)
-            screen.AppendLine(this._messages[i] + new string(' ', width - this._messages[i].Length));
-        for (int i = this._messages.Count; i < maxMessages; i++)
+        // for (int i = Math.Max(0, this._messages.Count - maxMessages); i < this._messages.Count; i++)
+        //     screen.AppendLine(this._messages[i] + new string(' ', width - this._messages[i].Length));
+        // for (int i = this._messages.Count; i < maxMessages; i++)
+        //     screen.AppendLine(new(' ', width));
+        foreach (string message in screenMessages)
+            screen.AppendLine(message + new string(' ', width - message.Length));
+        for (int i = screenMessages.Count; i < maxMessages; i++)
             screen.AppendLine(new(' ', width));
 
-        if (this._status != null)
-        {
+        if (!string.IsNullOrWhiteSpace(this._status))
             screen.AppendLine(this._status + new string(' ', width - this._status.Length));
-        }
         
         screen.Append(" : " + this._input);
         screen.Append(new string(' ', width - this._input.Length - 3));

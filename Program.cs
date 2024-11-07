@@ -37,6 +37,7 @@ class Program
         // Enable ANSI escape sequences on Windows
         ConsoleHelpers.Initialize();
 
+        // If they don't provide a name, use their machine's username
         string identity = args.Length > 1 ? args[1] : Environment.UserName;
         Client c = new ConsoleClient(server, port, identity);
         c.Start();
